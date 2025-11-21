@@ -1,3 +1,9 @@
+## docker 설치후
++ sudo usermod -aG docker $USER
++ sudo systemctl status docker
++ sudo systemctl restart docker
++ sudo systemctl status docker
++ sudo systemctl enable docker
 ## related docker hub
 + https://hub.docker.com/repository/docker/spisok/ml_jupyter_user
 ## run user
