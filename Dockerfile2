@@ -1,0 +1,66 @@
+##########################################################
+# BUILD STAGE (Install venv, Python packages)
+##########################################################
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04 AS build
+
+# Avoid prompts during apt install
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Timezone
+ENV TZ=Asia/Seoul
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone
+
+# Basic dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-venv python3-pip python3-dev \
+    build-essential git wget curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# venv
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Upgrade pip
+RUN pip install --upgrade pip
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+
+##########################################################
+# RUNTIME STAGE (Lightweight + has only CUDA runtime)
+##########################################################
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS runtime
+
+# Avoid prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Timezone
+ENV TZ=Asia/Seoul
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone
+
+# Basic tools (optional)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-venv python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy venv from builder
+COPY --from=build /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Working directory
+WORKDIR /workspace
+
+# Jupyter options
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Expose Jupyter port
+EXPOSE 8888
+
+# Command: Run Jupyter Lab
+CMD ["jupyter", "lab", "--notebook-dir=/workspace", "--port=8888", "--ip=0.0.0.0", "--no-browser", "--allow-root", "--debug"]
